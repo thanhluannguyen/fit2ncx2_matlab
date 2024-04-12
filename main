@@ -1,0 +1,62 @@
+% Generate random data from a scaled noncentral chi-squared distribution
+n = 5e4; % Number of data points
+
+x1 = random('rician', 10*rand, 10*rand, [n,1]);
+x2 = random('rician', 10*rand, 10*rand, [n,1]);
+data = x1.*x2;
+
+% histfit(data(:), 100, 'gamma')
+
+% Define the log-likelihood function for a scaled noncentral chi-squared distribution
+log_likelihood = @(params) 1/params(1)*ncx2pdf(data/params(1), params(2), params(3));
+log_likelihood = @(params) -sum(log(log_likelihood(params)));
+
+% Initial parameter guess
+initial_guess = rand(3, 1);
+
+% Maximize the log-likelihood function to estimate parameters
+estimated_params = fminsearch(log_likelihood, initial_guess);
+
+% Extract parameters
+scale_fit = estimated_params(1);
+degrees_freedom_fit = estimated_params(2);
+noncentrality_fit = estimated_params(3);
+
+% Display the estimated parameters
+disp(['Estimated scale: ', num2str(scale_fit)]);
+disp(['Estimated degrees of freedom: ', num2str(degrees_freedom_fit)]);
+disp(['Estimated noncentrality: ', num2str(noncentrality_fit)]);
+
+% Plot the cumulative distribution function (CDF)
+figure;
+tiledlayout(1, 2); 
+
+nexttile;
+[y, x] = ecdf(data); plot(x, y, 'LineWidth', 1.5); hold on;
+cdf_estimate = ncx2cdf(x/scale_fit, degrees_freedom_fit, noncentrality_fit);
+plot(x, cdf_estimate, '--b', 'LineWidth', 2);
+xlabel('Data');
+ylabel('Cumulative Probability');
+title('CDF of Fitted Scaled Noncentral Chi-Squared Distribution');
+
+nexttile;
+[y, x] = ecdf(data); plot(x, y, 'LineWidth', 1.5); hold on;
+cdf_estimate = ncx2cdf(x/scale_fit, degrees_freedom_fit, noncentrality_fit);
+plot(x, cdf_estimate, '--b', 'LineWidth', 2);
+xlabel('Data');
+ylabel('Cumulative Probability');
+title('CDF of Fitted Scaled Noncentral Chi-Squared Distribution');
+set(gca, 'XScale', 'Log');
+set(gca, 'YScale', 'Log');
+
+% Perform Kolmogorov-Smirnov (KS) test
+[h, p, ksstat] = kstest(data, 'CDF', [x, cdf_estimate]);
+
+% Display KS test results
+disp(['KS test statistic: ', num2str(ksstat)]);
+disp(['p-value: ', num2str(p)]);
+if h
+    disp('Reject null hypothesis: The distributions are significantly different.');
+else
+    disp('Cannot reject null hypothesis: The distributions are NOT significantly different.');
+end
